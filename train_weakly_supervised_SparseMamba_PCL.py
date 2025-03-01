@@ -25,6 +25,7 @@ from dataloaders.dataset import BaseDataSets, RandomGenerator, MSCMRDataset, Cha
 # import networks.MedSAM_Inference
 from networks.MedSAM_Inference import medsam_model, medsam_inference
 from networks.net_factory import net_factory
+from utils.spobe import ObjectPseudoBoundaryGenerator
 from val_2D import test_single_volume,test_single_volume_ds
 from utils import losses, metrics, ramps
 import cv2
@@ -65,37 +66,10 @@ parser.add_argument('--kernel_sizes', type=int, default=7,
                     help='kernel size for edge detection')
 args = parser.parse_args()
 
-def aug_label(label_batch,threshold=0.4, kernel_sizes=7):
-    for sample_idx in range(label_batch.shape[0]):
-        label = label_batch[sample_idx].cpu().numpy()
-        for class_id in range(0, args.num_classes):
-            try:
-                #提取每个类别的mask
-                class_mask = (label == class_id).astype(np.uint8)
-                #计算每个类别的区域框
-                contours, _ = cv2.findContours(class_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                x, y, w, h = cv2.boundingRect(contours[0])
-
-                #使用sobel算子提取边缘
-                sobelx = cv2.Sobel(class_mask, cv2.CV_64F, 1, 0, ksize=kernel_sizes)
-                sobely = cv2.Sobel(class_mask, cv2.CV_64F, 0, 1, ksize=kernel_sizes)
-                # 归一化到[0, 255]
-                magnitude = cv2.magnitude(sobelx, sobely)
-                magnitude = np.uint8(np.absolute(magnitude))
-
-                # 阈值化操作得到新的mask
-                _, thresholded = cv2.threshold(magnitude, threshold * 255, 255, cv2.THRESH_BINARY)
-
-                #将新mask在原mask区域框内的部分追加到原mask中
-                class_mask = np.where(thresholded == 255, 1, 0)
-                zero_mask = np.zeros_like(class_mask)
-                zero_mask[y:y+h, x:x+w] = class_mask[y:y+h, x:x+w]
-                label = np.where(zero_mask == 1, class_id, label)
-            except:
-                continue
-            
-        label_batch[sample_idx] = torch.tensor(label).long()
-    # print("aug_label finished!")
+def aug_label(label_batch, volume_batch, boundary_generator):
+    pseudo_edges = boundary_generator(volume_batch, label_batch)
+    label_batch = torch.where(pseudo_edges > 0, label_batch, label_batch)
+    return label_batch
 
 def worker_init_fn(worker_id):
     random.seed(args.seed + worker_id)
@@ -149,8 +123,20 @@ def train(args, snapshot_path):
     for epoch_num in iterator:
         for i_batch, sampled_batch in enumerate(trainloader):
             volume_batch, label_batch = sampled_batch['image'], sampled_batch['label']
-            #增强label部分代码
-            aug_label(label_batch, threshold=args.threshold, kernel_sizes=args.kernel_sizes)
+            """
+            # SPOBE Generator
+            boundary_generator = ObjectPseudoBoundaryGenerator(
+                k=25,
+                kernel_sizes=[7, 13, 25],
+                sobel_threshold=args.threshold,
+                ignore_index=4,
+                device="cuda" if torch.cuda.is_available() else "cpu"
+            )
+            
+            # Enriched Scibble with boundary generator
+            label_batch = aug_label(label_batch, volume_batch, boundary_generator)
+            """
+
 
             volume_batch = volume_batch.cuda()
             label_batch = label_batch.cuda()
@@ -172,7 +158,7 @@ def train(args, snapshot_path):
                 batch_image_embedding = torch.add(batch_image_embedding, middle)
             except:
                 pass
-            #
+
             # 提取 coarse prediction 的边界框和边缘检测
             outputs_np = torch.argmax(outputs_soft, dim=1).cpu().numpy()  # Shape: (B, H, W)
             label_np = label_batch.cpu().numpy()  # Shape: (B, H, W)

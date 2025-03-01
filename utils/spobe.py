@@ -60,3 +60,4 @@ class ObjectPseudoBoundaryGenerator(nn.Module):
 
     def forward(self, images, scribbles):
         return self.get_natural_pseudo_edge(images, scribbles)
+

@@ -108,6 +108,20 @@ def train(args, snapshot_path):
         for i_batch, sampled_batch in enumerate(trainloader):
 
             volume_batch, label_batch = sampled_batch['image'], sampled_batch['label']
+            """
+            # SPOBE Generator
+            boundary_generator = ObjectPseudoBoundaryGenerator(
+                k=25,
+                kernel_sizes=[7, 13, 25],
+                sobel_threshold=args.threshold,
+                ignore_index=4,
+                device="cuda" if torch.cuda.is_available() else "cpu"
+            )
+                        
+            # Enriched Scibble with boundary generator
+            label_batch = aug_label(label_batch, volume_batch, boundary_generator)
+            """
+
             volume_batch, label_batch = volume_batch.cuda(), label_batch.cuda()
 
             outputs = model(volume_batch)
