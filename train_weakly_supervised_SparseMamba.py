@@ -18,28 +18,27 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.utils import make_grid
 from tqdm import tqdm
-
 from dataloaders import utils
-from dataloaders.dataset import BaseDataSets, RandomGenerator, MSCMRDataset
+from dataloaders.dataset import BaseDataSets, RandomGenerator, MSCMRDataset, ChaosDataset
 from networks.net_factory import net_factory
 from utils import losses, metrics, ramps
 from val_2D import test_single_volume, test_single_volume_ds
- #  python train_weakly_supervised_pCE.py
 parser = argparse.ArgumentParser()
-# home/linux/Desktop/WSL4MIS/data/MSCMR_dataset
+
 parser.add_argument('--root_path', type=str,
-                    default='../data'
-                            '/ACDC', help='Name of Experiment')
+                    default='../data/ACDC', help='Name of Experiment')
+# ACDC      '../data/ACDC'
+# chaos     '../data/CHAOs'
+# MSCMR     '../data/MSCMR'
 parser.add_argument('--exp', type=str,
-                    default='ACDC_umamba_es2d_new_batchsize24', help='experiment_name')
+                    default='ACDC_sparsemamba', help='experiment_name')
 parser.add_argument('--fold', type=str,
                     default='fold5', help='cross validation')
 parser.add_argument('--sup_type', type=str,
                     default='scribble', help='supervisionc type')
-# unet ccnet alignseg bisenet mobilenet ecanet efficientumamba segmamba umamba swinumamba lkmunet segmamba
-# segmenter unetformer segformer umamba_es2d
+# unet ccnet alignseg bisenet mobilenet ecanet efficientumamba segmamba umamba swinumamba lkmunet segmamba segmenter unetformer segformer sparsemamba
 parser.add_argument('--model', type=str,
-                    default='umamba_es2d', help='model_name')
+                    default='sparsemamba', help='model_name')
 parser.add_argument('--num_classes', type=int,  default=4,
                     help='output channel of network')
 parser.add_argument('--max_iterations', type=int,
@@ -63,22 +62,27 @@ def train(args, snapshot_path):
     max_iterations = args.max_iterations
 
     model = net_factory(net_type=args.model, in_chns=1, class_num=num_classes)
-    db_train = BaseDataSets(base_dir=args.root_path, split="train", transform=transforms.Compose([
-        RandomGenerator(args.patch_size)
-    ]), fold=args.fold, sup_type=args.sup_type)
-    db_val = BaseDataSets(base_dir=args.root_path,
-                          fold=args.fold, split="val")
-#    self, data_root, split, transform=None):
-    # db_train = MSCMRDataset(data_root=args.root_path, split="train", transform=transforms.Compose([
-    #     RandomGenerator(args.patch_size)
-    # ]))
-    # db_val = MSCMRDataset(data_root=args.root_path, split="val")
+
+    if args.root_path == '../data/ACDC':
+        db_train = BaseDataSets(base_dir=args.root_path, split="train", transform=transforms.Compose([
+            RandomGenerator(args.patch_size)
+        ]), fold=args.fold, sup_type=args.sup_type)
+        db_val = BaseDataSets(base_dir=args.root_path,
+                            fold=args.fold, split="val")
+    elif args.root_path == '../data/CHAOs':
+        db_train = ChaosDataset(args.root_path, split="train", transform=transforms.Compose([
+            RandomGenerator(args.patch_size)
+        ]))
+        db_val = ChaosDataset(args.root_path, split="val")
+    elif args.root_path == '../data/MSCMR':
+        db_train = MSCMRDataset(args.root_path, split="train", transform=transforms.Compose([
+            RandomGenerator(args.patch_size)
+        ]))
+        db_val = MSCMRDataset(args.root_path, split="val")
 
     def worker_init_fn(worker_id):
         random.seed(args.seed + worker_id)
 
-    # trainloader = DataLoader(db_train, batch_size=batch_size, shuffle=True,
-    #                          num_workers=8, pin_memory=True)
 
 
     trainloader = DataLoader(db_train, batch_size=batch_size, shuffle=True,

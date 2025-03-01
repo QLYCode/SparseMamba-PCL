@@ -21,7 +21,7 @@ from torchvision.utils import make_grid
 from tqdm import tqdm
 
 # from dataloaders import utils
-from dataloaders.dataset import BaseDataSets, RandomGenerator
+from dataloaders.dataset import BaseDataSets, RandomGenerator, MSCMRDataset, ChaosDataset
 # import networks.MedSAM_Inference
 from networks.MedSAM_Inference import medsam_model, medsam_inference
 from networks.net_factory import net_factory
@@ -34,15 +34,18 @@ from torch.nn import functional as F
 parser = argparse.ArgumentParser()
 parser.add_argument('--root_path', type=str,
                     default='../data/ACDC', help='Name of Experiment')
+# ACDC      '../data/ACDC'
+# chaos     '../data/CHAOs'
+# MSCMR     '../data/MSCMR'
 parser.add_argument('--exp', type=str,
-                    default='ACDC_umamba_es2d_6', help='experiment_name')
+                    default='ACDC_sparsemamba_pcl', help='experiment_name')
 parser.add_argument('--fold', type=str,
                     default='fold5', help='cross validation')
 parser.add_argument('--sup_type', type=str,
                     default='scribble', help='supervision type')
-# progressmix unet
+# unet ccnet alignseg bisenet mobilenet ecanet efficientumamba segmamba umamba swinumamba lkmunet segmamba segmenter unetformer segformer sparsemamba
 parser.add_argument('--model', type=str,
-                    default='umamba_es2d', help='model_name')
+                    default='sparsemamba', help='model_name')
 parser.add_argument('--num_classes', type=int, default=4,
                     help='output channel of network')
 parser.add_argument('--max_iterations', type=int,
@@ -58,7 +61,6 @@ parser.add_argument('--patch_size', type=list, default=[256, 256],
 parser.add_argument('--seed', type=int, default=2025, help='random seed')
 parser.add_argument('--threshold', type=float, default=0.4,
                     help='threshold for edge detection')
-#这里的kernel_sizes是一个超参数，可以自行调整，按照你提供的信息可以设置为[7,13,25]
 parser.add_argument('--kernel_sizes', type=int, default=7, 
                     help='kernel size for edge detection')
 args = parser.parse_args()
@@ -106,12 +108,24 @@ def train(args, snapshot_path):
     max_iterations = args.max_iterations
 
     model = net_factory(net_type=args.model, in_chns=1, class_num=num_classes)
+
     W,H = args.patch_size
-    db_train = BaseDataSets(base_dir=args.root_path, split="train", transform=transforms.Compose([
-        RandomGenerator(args.patch_size)
-    ]), fold=args.fold, sup_type=args.sup_type)
-    db_val = BaseDataSets(base_dir=args.root_path,
-                          fold=args.fold, split="val")
+    if args.root_path == '../data/ACDC':
+        db_train = BaseDataSets(base_dir=args.root_path, split="train", transform=transforms.Compose([
+            RandomGenerator(args.patch_size)
+        ]), fold=args.fold, sup_type=args.sup_type)
+        db_val = BaseDataSets(base_dir=args.root_path,
+                              fold=args.fold, split="val")
+    elif args.root_path == '../data/CHAOs':
+        db_train = ChaosDataset(args.root_path, split="train", transform=transforms.Compose([
+            RandomGenerator(args.patch_size)
+        ]))
+        db_val = ChaosDataset(args.root_path, split="val")
+    elif args.root_path == '../data/MSCMR':
+        db_train = MSCMRDataset(args.root_path, split="train", transform=transforms.Compose([
+            RandomGenerator(args.patch_size)
+        ]))
+        db_val = MSCMRDataset(args.root_path, split="val")
 
     trainloader = DataLoader(db_train, batch_size=batch_size, shuffle=True,
                              num_workers=8, pin_memory=True, worker_init_fn=worker_init_fn)

@@ -18,11 +18,15 @@ from networks.net_factory import net_factory
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--root_path', type=str,
-                    default='/home/linux/Desktop/WSL4MIS/data/ACDC', help='Name of Experiment')
+                    default='../data/ACDC', help='Name of Experiment')
+# ACDC      '../data/ACDC'
+# chaos     '../data/CHAOs'
+# MSCMR     '../data/MSCMR'
 parser.add_argument('--exp', type=str,
-                    default='ACDC/ACDC_umamba_es2d_new', help='experiment_name')
+                    default='ACDC_sparsemamba_pcl', help='experiment_name')
+# unet ccnet alignseg bisenet mobilenet ecanet efficientumamba segmamba umamba swinumamba lkmunet segmamba segmenter unetformer segformer sparsemamba
 parser.add_argument('--model', type=str,
-                    default='unet_cct', help='model_name')
+                    default='sparsemamba', help='model_name')
 parser.add_argument('--fold', type=str,
                     default='fold5', help='fold')
 parser.add_argument('--num_classes', type=int,  default=4,
@@ -30,6 +34,7 @@ parser.add_argument('--num_classes', type=int,  default=4,
 parser.add_argument('--sup_type', type=str, default="scribble",
                     help='label')
 
+args = parser.parse_args()
 
 def get_fold_ids(fold):
     all_cases_set = ["patient{:0>3}".format(i) for i in range(1, 101)]
@@ -70,7 +75,6 @@ def get_fold_ids(fold):
     else:
         return "ERROR KEY"
 
-
 def calculate_metric_percase(pred, gt, spacing):
     pred[pred > 0] = 1
     gt[gt > 0] = 1
@@ -79,14 +83,9 @@ def calculate_metric_percase(pred, gt, spacing):
     hd95 = metric.binary.hd95(pred, gt, voxelspacing=spacing)
     return dice, hd95, asd
 
-
-def test_single_volume(case, net, test_save_path):
-    # print(+"+++++++++++++++++++++++++++++")
-    # print()
-    print("++++++++++++++")
-    print(case)
-    case=case.split(".")[0]+".h5"
-    h5f = h5py.File("/home/linux/Desktop/WSL4MIS/data/ACDC/ACDC_training_volumes/{}".format(case), 'r')
+def test_single_volume(case, net, test_save_path, FLAGS):
+    case = case.split(".")[0] + ".h5"
+    h5f = h5py.File(FLAGS.root_path + "/ACDC_training_volumes/{}".format(case), 'r')
     image = h5f['image'][:]
     label = h5f['label'][:]
     prediction = np.zeros_like(label)
@@ -98,19 +97,14 @@ def test_single_volume(case, net, test_save_path):
             0).unsqueeze(0).float().cuda()
         net.eval()
         with torch.no_grad():
-            out_aux1, out_aux2 = net(input)
-            out_aux1_soft = torch.softmax(out_aux1, dim=1)
-            out_aux2_soft = torch.softmax(out_aux2, dim=1)
-            out = torch.argmax(out_aux2_soft, dim=1).squeeze(0)
-
-            # out_main = net(input)
-            # out = torch.argmax(torch.softmax(
-            #     out_main, dim=1), dim=1).squeeze(0)
-            # out = out.cpu().detach().numpy()
+            out_main = net(input)
+            out = torch.argmax(torch.softmax(
+                out_main, dim=1), dim=1).squeeze(0)
+            out = out.cpu().detach().numpy()
             pred = zoom(out, (x / 256, y / 256), order=0)
             prediction[ind] = pred
     case = case.replace(".h5", "")
-    org_img_path = "/home/linux/Desktop/WSL4MIS/data/ACDC/ACDC_training/{}.nii.gz".format(case)
+    org_img_path = "../data/ACDC_training/{}.nii.gz".format(case)
     org_img_itk = sitk.ReadImage(org_img_path)
     spacing = org_img_itk.GetSpacing()
 
@@ -132,11 +126,10 @@ def test_single_volume(case, net, test_save_path):
     sitk.WriteImage(lab_itk, test_save_path + case + "_gt.nii.gz")
     return first_metric, second_metric, third_metric
 
-
 def Inference(FLAGS):
     train_ids, test_ids = get_fold_ids(FLAGS.fold)
     all_volumes = os.listdir(
-        FLAGS.root_path + "/ACDC_training")
+        FLAGS.root_path + "/ACDC_training_volumes")
     image_list = []
     for ids in test_ids:
         new_data_list = list(filter(lambda x: re.match(
@@ -144,13 +137,15 @@ def Inference(FLAGS):
         image_list.extend(new_data_list)
     snapshot_path = "../model/{}_{}/{}".format(
         FLAGS.exp, FLAGS.fold, FLAGS.sup_type)
-    test_save_path = "./model/"
+    test_save_path = "../model/{}_{}/{}/{}_predictions/".format(
+        FLAGS.exp, FLAGS.fold, FLAGS.sup_type, FLAGS.model)
     if os.path.exists(test_save_path):
         shutil.rmtree(test_save_path)
     os.makedirs(test_save_path)
     net = net_factory(net_type=FLAGS.model, in_chns=1,
                       class_num=FLAGS.num_classes)
-    save_mode_path = "/home/linux/Desktop/WSL4MIS/model/ACDC_umamba_es2d_new_fold5/scribble/iter_2000_dice_0.7222.pth"
+    save_mode_path = os.path.join(
+        snapshot_path, 'iter_90000.pth')
     net.load_state_dict(torch.load(save_mode_path))
     print("init weight from {}".format(save_mode_path))
     net.eval()
@@ -176,7 +171,6 @@ if __name__ == '__main__':
     FLAGS = parser.parse_args()
     total = 0.0
     for i in [1, 2, 3, 4, 5]:
-        # for i in [5]:
         FLAGS.fold = "fold{}".format(i)
         print("Inference fold{}".format(i))
         mean_dice = Inference(FLAGS)

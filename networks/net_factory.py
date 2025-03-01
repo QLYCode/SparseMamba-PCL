@@ -184,7 +184,7 @@ def net_factory(net_type="unet", in_chns=1, class_num=3):
         net = LKMUNet(in_channels=in_chns, out_channels=class_num, kernel_sizes=[21, 15, 9, 3]).cuda()
 
     # ********************* proposed ***************************
-    elif net_type == "umamba_es2d":
+    elif net_type == "sparsemamba":
         from networks.UMamba_e2sd import UMambaBot
         net = UMambaBot(input_channels=in_chns,
                         n_stages=4,  # 包含stem的4个编码阶段
