@@ -54,6 +54,11 @@ parser.add_argument('--patch_size', type=list,  default=[256, 256],
 parser.add_argument('--seed', type=int,  default=2022, help='random seed')
 args = parser.parse_args()
 
+def aug_label(label_batch, volume_batch, boundary_generator):
+    pseudo_edges = boundary_generator(volume_batch, label_batch)
+    label_batch = torch.where(pseudo_edges > 0, label_batch, label_batch)
+    return label_batch
+
 
 def train(args, snapshot_path):
     base_lr = args.base_lr
