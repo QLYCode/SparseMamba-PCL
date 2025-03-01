@@ -20,7 +20,7 @@ This repository is the official implementation of the paper SparseMamba-PCL: Scr
 
 ## Requirements
 
-### Download the pretrained [Med-SAM](https://github.com/bowang-lab/MedSAM?tab=readme-ov-file) model [sam_vit_b_01ec64.pth](https://huggingface.co/datasets/Gourieff/ReActor/blob/main/models/sams/sam_vit_b_01ec64.pth), and place it at e.g., `./SparseMamba-PCL`
+### Download the pretrained [Med-SAM](https://github.com/bowang-lab/MedSAM?tab=readme-ov-file) model [sam_vit_b_01ec64.pth](https://huggingface.co/datasets/Gourieff/ReActor/blob/main/models/sams/sam_vit_b_01ec64.pth), and place it at e.g., `./SparseMamba-PCL`.
 
 Some important required packages include:
 * Python 3.8
@@ -63,9 +63,9 @@ To evaluate the model, run this command:
 
 ``` python test_2D_fully.py ```
 
-## Citation
+<!-- ## Citation
 
 ```bash
 @article{
 }
-```
+``` -->

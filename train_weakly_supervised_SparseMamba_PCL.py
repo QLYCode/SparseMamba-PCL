@@ -172,7 +172,7 @@ def train(args, snapshot_path):
                 batch_image_embedding = torch.add(batch_image_embedding, middle)
             except:
                 pass
-
+            #
             # 提取 coarse prediction 的边界框和边缘检测
             outputs_np = torch.argmax(outputs_soft, dim=1).cpu().numpy()  # Shape: (B, H, W)
             label_np = label_batch.cpu().numpy()  # Shape: (B, H, W)

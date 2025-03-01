@@ -4,6 +4,8 @@ import torch.nn as nn
 from torch.autograd import Variable
 from torch.nn import functional as F
 
+import utils.edge_helpers as edge_helpers
+
 
 def dice_loss(score, target):
     target = target.float()
@@ -29,8 +31,8 @@ def dice_loss1(score, target):
 
 def entropy_loss(p, C=2):
     # p N*C*W*H*D
-    y1 = -1*torch.sum(p*torch.log(p+1e-6), dim=1) / \
-        torch.tensor(np.log(C)).cuda()
+    y1 = -1 * torch.sum(p * torch.log(p + 1e-6), dim=1) / \
+         torch.tensor(np.log(C)).cuda()
     ent = torch.mean(y1)
 
     return ent
@@ -57,8 +59,8 @@ def softmax_dice_loss(input_logits, target_logits):
 
 
 def entropy_loss_map(p, C=2):
-    ent = -1*torch.sum(p * torch.log(p + 1e-6), dim=1,
-                       keepdim=True)/torch.tensor(np.log(C)).cuda()
+    ent = -1 * torch.sum(p * torch.log(p + 1e-6), dim=1,
+                         keepdim=True) / torch.tensor(np.log(C)).cuda()
     return ent
 
 
@@ -78,7 +80,7 @@ def softmax_mse_loss(input_logits, target_logits, sigmoid=False):
         input_softmax = F.softmax(input_logits, dim=1)
         target_softmax = F.softmax(target_logits, dim=1)
 
-    mse_loss = (input_softmax-target_softmax)**2
+    mse_loss = (input_softmax - target_softmax) ** 2
     return mse_loss
 
 
@@ -113,7 +115,7 @@ def symmetric_mse_loss(input1, input2):
     - Sends gradients to both input1 and input2.
     """
     assert input1.size() == input2.size()
-    return torch.mean((input1 - input2)**2)
+    return torch.mean((input1 - input2) ** 2)
 
 
 class FocalLoss(nn.Module):
@@ -122,7 +124,7 @@ class FocalLoss(nn.Module):
         self.gamma = gamma
         self.alpha = alpha
         if isinstance(alpha, (float, int)):
-            self.alpha = torch.Tensor([alpha, 1-alpha])
+            self.alpha = torch.Tensor([alpha, 1 - alpha])
         if isinstance(alpha, list):
             self.alpha = torch.Tensor(alpha)
         self.size_average = size_average
@@ -131,8 +133,8 @@ class FocalLoss(nn.Module):
         if input.dim() > 2:
             # N,C,H,W => N,C,H*W
             input = input.view(input.size(0), input.size(1), -1)
-            input = input.transpose(1, 2)    # N,C,H*W => N,H*W,C
-            input = input.contiguous().view(-1, input.size(2))   # N,H*W,C => N*H*W,C
+            input = input.transpose(1, 2)  # N,C,H*W => N,H*W,C
+            input = input.contiguous().view(-1, input.size(2))  # N,H*W,C => N*H*W,C
         target = target.view(-1, 1)
 
         logpt = F.log_softmax(input, dim=1)
@@ -146,7 +148,7 @@ class FocalLoss(nn.Module):
             at = self.alpha.gather(0, target.data.view(-1))
             logpt = logpt * Variable(at)
 
-        loss = -1 * (1-pt)**self.gamma * logpt
+        loss = -1 * (1 - pt) ** self.gamma * logpt
         if self.size_average:
             return loss.mean()
         else:
@@ -192,44 +194,6 @@ class DiceLoss(nn.Module):
         return loss / self.n_classes
 
 
-# class pDLoss(nn.Module):
-#     def __init__(self, n_classes, ignore_index):
-#         super(pDLoss, self).__init__()
-#         self.n_classes = n_classes
-#         self.ignore_index = ignore_index
-
-#     def _one_hot_encoder(self, input_tensor):
-#         tensor_list = []
-#         for i in range(self.n_classes):
-#             temp_prob = input_tensor == i * torch.ones_like(input_tensor)
-#             tensor_list.append(temp_prob)
-#         output_tensor = torch.cat(tensor_list, dim=1)
-#         return output_tensor.float()
-
-#     def _dice_loss(self, score, target, ignore_mask):
-#         target = target.float()
-#         smooth = 1e-5
-#         intersect = torch.sum(score * target * ignore_mask)
-#         y_sum = torch.sum(target * target * ignore_mask)
-#         z_sum = torch.sum(score * score * ignore_mask)
-#         loss = (2 * intersect + smooth) / (z_sum + y_sum + smooth)
-#         loss = 1 - loss
-#         return loss
-
-#     def forward(self, inputs, target, weight=None):
-#         ignore_mask = torch.ones_like(target)
-#         ignore_mask[target == self.ignore_index] = 0
-#         target = self._one_hot_encoder(target)
-#         if weight is None:
-#             weight = [1] * self.n_classes
-#         assert inputs.size() == target.size(), 'predict & target shape do not match'
-#         class_wise_dice = []
-#         loss = 0.0
-#         for i in range(0, self.n_classes):
-#             dice = self._dice_loss(inputs[:, i], target[:, i], ignore_mask)
-#             class_wise_dice.append(1.0 - dice.item())
-#             loss += dice * weight[i]
-#         return loss / self.n_classes
 class pDLoss(nn.Module):
     def __init__(self, n_classes, ignore_index):
         super(pDLoss, self).__init__()
@@ -247,7 +211,6 @@ class pDLoss(nn.Module):
     def _dice_loss(self, score, target, ignore_mask):
         target = target.float()
         smooth = 1e-5
-
         intersect = torch.sum(score * target * ignore_mask)
         y_sum = torch.sum(target * target * ignore_mask)
         z_sum = torch.sum(score * score * ignore_mask)
@@ -256,40 +219,31 @@ class pDLoss(nn.Module):
         return loss
 
     def forward(self, inputs, target, weight=None):
-        # 处理target的维度
-        if target.dim() == 3:
-            target = target.unsqueeze(1)  # (B, H, W) -> (B, 1, H, W)
-        
-        B, C, H, W = inputs.size()
-        target = target[:, :C, :, :]  # 确保不超过输入的通道数
         ignore_mask = torch.ones_like(target)
         ignore_mask[target == self.ignore_index] = 0
         target = self._one_hot_encoder(target)
-        
         if weight is None:
-            weight = [1.0] * self.n_classes
-        weight = torch.tensor(weight, device=inputs.device)
-        
+            weight = [1] * self.n_classes
+        assert inputs.size() == target.size(), 'predict & target shape do not match'
         class_wise_dice = []
         loss = 0.0
-        for i in range(self.n_classes):
+        for i in range(0, self.n_classes):
             dice = self._dice_loss(inputs[:, i], target[:, i], ignore_mask)
             class_wise_dice.append(1.0 - dice.item())
             loss += dice * weight[i]
-        
-        return loss / weight.sum()  # 修正归一化为权重之和
+        return loss / self.n_classes
 
 
 def entropy_minmization(p):
-    y1 = -1*torch.sum(p*torch.log(p+1e-6), dim=1)
+    y1 = -1 * torch.sum(p * torch.log(p + 1e-6), dim=1)
     ent = torch.mean(y1)
 
     return ent
 
 
 def entropy_map(p):
-    ent_map = -1*torch.sum(p * torch.log(p + 1e-6), dim=1,
-                           keepdim=True)
+    ent_map = -1 * torch.sum(p * torch.log(p + 1e-6), dim=1,
+                             keepdim=True)
     return ent_map
 
 
@@ -315,7 +269,7 @@ class SizeLoss(nn.Module):
         penalty_big = (output_counts - upper_bound) ** 2
         # do not consider background(i.e. channel 0)
         res = too_small.float()[:, 1:] * penalty_small[:, 1:] + \
-            too_big.float()[:, 1:] * penalty_big[:, 1:]
+              too_big.float()[:, 1:] * penalty_big[:, 1:]
         loss = res / (output.shape[2] * output.shape[3] * output.shape[4])
         return loss.mean()
 
@@ -335,8 +289,8 @@ class MumfordShah_Loss(nn.Module):
                                   ) / torch.sum(output, (2, 3))
             pcentroid = pcentroid.view(tarshape[0], outshape[1], 1, 1)
             plevel = target_ - \
-                pcentroid.expand(
-                    tarshape[0], outshape[1], tarshape[2], tarshape[3])
+                     pcentroid.expand(
+                         tarshape[0], outshape[1], tarshape[2], tarshape[3])
             pLoss = plevel * plevel * output
             loss += torch.sum(pLoss)
         return loss
@@ -356,9 +310,11 @@ class MumfordShah_Loss(nn.Module):
         loss_tv = self.gradientLoss2d(prediction)
         return loss_level + loss_tv
 
+
 class SupConLoss(nn.Module):
     """Supervised Contrastive Learning: https://arxiv.org/pdf/2004.11362.pdf.
     It also supports the unsupervised contrastive loss in SimCLR"""
+
     def __init__(self, temperature=0.07, contrast_mode='all',
                  base_temperature=0.07):
         super(SupConLoss, self).__init__()
@@ -397,7 +353,8 @@ class SupConLoss(nn.Module):
         elif labels is not None:
             labels = labels.contiguous().view(-1, 1)
             if labels.shape[0] != batch_size:
-                raise ValueError('Num of labels {} does not match num of features {}'.format(labels.shape[0], batch_size))
+                raise ValueError(
+                    'Num of labels {} does not match num of features {}'.format(labels.shape[0], batch_size))
             mask = torch.eq(labels, labels.T).float().to(device)
         else:
             mask = mask.float().to(device)
@@ -444,3 +401,73 @@ class SupConLoss(nn.Module):
         loss = loss.view(anchor_count, batch_size).mean()
 
         return loss
+
+
+class BoundaryAlignmentLoss(nn.Module):
+    def __init__(self, ignore_index=4, gamma=2.0, edge_weight=5.0, margin=0.3, sobel_threshold=0.15, k=15,
+                 kernel_sizes=[3, 7, 15]):
+        super().__init__()
+        self.ignore_index = ignore_index
+        self.gamma = gamma  # Focal loss parameter
+        self.edge_weight = edge_weight  # Weight for edge pixels
+        self.margin = margin  # Margin for separation
+        self.sobel_threshold = sobel_threshold  # Threshold for edge detection
+        self.k = k  # Number of pseudo edges to generate
+        self.kernel_sizes = kernel_sizes  # Kernel sizes for edge detection
+
+    def _differentiable_onehot(self, logits):
+        # Differentiable argmax approximation using Gumbel-Softmax
+        return F.gumbel_softmax(logits, tau=0.1, hard=True, dim=1)
+
+    def _edge_detection(self, x):
+        # One-hot aware edge detection
+        sobel_x = torch.tensor([[[[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]]],
+                               dtype=torch.float32, device=x.device)
+        sobel_y = torch.tensor([[[[1, 2, 1], [0, 0, 0], [-1, -2, -1]]]],
+                               dtype=torch.float32, device=x.device)
+
+        # Detect edges per channel
+        edges = []
+        for c in range(x.size(1)):
+            if c == self.ignore_index:
+                continue
+            channel = x[:, c]
+            ex = F.conv2d(channel, sobel_x, padding=1)
+            ey = F.conv2d(channel, sobel_y, padding=1)
+            edges.append((ex ** 2 + ey ** 2 + 1e-6).sqrt())
+
+        return torch.stack(edges, dim=1)
+
+    def _asymmetric_focal_loss(self, pred, target):
+        # Focal loss with asymmetric weighting for edge/non-edge
+        pos_weight = target * self.edge_weight
+        bce = F.binary_cross_entropy_with_logits(pred, target, reduction='none')
+        pt = torch.exp(-bce)
+        focal = (1 - pt) ** self.gamma
+
+        # Margin adjustment for false negatives
+        false_negatives = (pred < self.margin) & (target > 0)
+        focal[false_negatives] *= 2.0
+
+        return (focal * bce * pos_weight).mean()
+
+    def forward(self, logits, images, scribbles):
+        targets = edge_helpers.get_image_pseudo_edge(images, scribbles, self.sobel_threshold, self.k, self.kernel_sizes,
+                                                     self.ignore_index)
+        # Differentiable one-hot with ignored class
+        onehot = self._differentiable_onehot(logits)
+        onehot[:, self.ignore_index] = 0  # Mask background
+
+        # Edge detection on one-hot encoding
+        pred_edges = self._edge_detection(onehot)
+        # Combine channel-wise losses
+        loss = 0
+        for c in range(pred_edges.size(1)):
+            if c == self.ignore_index:
+                continue
+            channel_pred = pred_edges[:, c]
+            channel_target = targets[:, c]
+            loss += self._asymmetric_focal_loss(channel_pred, channel_target)
+
+        return loss / (pred_edges.size(1) - 1)  # Normalize by active classes
+
