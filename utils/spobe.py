@@ -23,7 +23,7 @@ class ObjectPseudoBoundaryGenerator(nn.Module):
                 gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
             else:
                 gray = image_np
-            gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
+            # gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
             grad_x = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
             grad_y = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
             grad_mag = np.sqrt(grad_x ** 2 + grad_y ** 2)
@@ -37,7 +37,10 @@ class ObjectPseudoBoundaryGenerator(nn.Module):
         return self.generate_pseudo_edges(scribbles, edges)
 
     def generate_pseudo_edges(self, scribbles, edge_maps):
+        # scribbles: B x H x W -> B x C x H x W
+        scribbles = scribbles.unsqueeze(1).to(self.device)
         _, C, _, _ = scribbles.shape
+        
         pseudo_edge_maps = torch.zeros_like(scribbles).to(self.device)
         count = torch.zeros_like(scribbles).to(self.device)
 

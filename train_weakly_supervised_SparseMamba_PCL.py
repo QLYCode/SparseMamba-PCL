@@ -67,7 +67,10 @@ parser.add_argument('--kernel_sizes', type=int, default=7,
 args = parser.parse_args()
 
 def aug_label(label_batch, volume_batch, boundary_generator):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     pseudo_edges = boundary_generator(volume_batch, label_batch)
+    pseudo_edges = pseudo_edges.view(pseudo_edges.shape[0],pseudo_edges.shape[2],pseudo_edges.shape[3]).to(device)
+    label_batch = label_batch.to(device)
     label_batch = torch.where(pseudo_edges > 0, label_batch, label_batch)
     return label_batch
 
@@ -137,7 +140,17 @@ def train(args, snapshot_path):
             label_batch = aug_label(label_batch, volume_batch, boundary_generator)
             """
 
+            # SPOBE Generator
+            boundary_generator = ObjectPseudoBoundaryGenerator(
+                k=25,
+                kernel_sizes=[7, 13, 25],
+                sobel_threshold=args.threshold,
+                ignore_index=4,
+                device="cuda" if torch.cuda.is_available() else "cpu"
+            )
 
+            # Enriched Scibble with boundary generator
+            label_batch = aug_label(label_batch, volume_batch, boundary_generator)
             volume_batch = volume_batch.cuda()
             label_batch = label_batch.cuda()
 
