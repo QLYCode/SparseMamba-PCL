@@ -1,6 +1,6 @@
 # SparseMamba-PCL
 
-This repository is the official implementation of the paper SparseMamba-PCL: Scribble-Supervised Medical Image Segmentation via SAM-Guided Progressive Collaborative Learning. [Arxiv]().
+This repository is the official implementation of the paper SparseMamba-PCL: Scribble-Supervised Medical Image Segmentation via SAM-Guided Progressive Collaborative Learning. [Arxiv](https://arxiv.org/abs/2503.01633).
 
 ## Datasets
 
@@ -63,9 +63,16 @@ To evaluate the model, run this command:
 
 ``` python test_2D_fully.py ```
 
-<!-- ## Citation
+## Citation
 
 ```bash
-@article{
+@misc{qiu2025sparsemambapclscribblesupervisedmedicalimage,
+      title={SparseMamba-PCL: Scribble-Supervised Medical Image Segmentation via SAM-Guided Progressive Collaborative Learning}, 
+      author={Luyi Qiu and Tristan Till and Xiaobao Guo and Adams Wai-Kin Kong},
+      year={2025},
+      eprint={2503.01633},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2503.01633}, 
 }
 ``` -->
