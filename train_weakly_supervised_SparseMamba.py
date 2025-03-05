@@ -23,6 +23,7 @@ from dataloaders.dataset import BaseDataSets, RandomGenerator, MSCMRDataset, Cha
 from networks.net_factory import net_factory
 from utils import losses, metrics, ramps
 from val_2D import test_single_volume, test_single_volume_ds
+from utils.spobe import ObjectPseudoBoundaryGenerator
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--root_path', type=str,
@@ -52,12 +53,20 @@ parser.add_argument('--base_lr', type=float,  default=0.03,
 parser.add_argument('--patch_size', type=list,  default=[256, 256],
                     help='patch size of network input')
 parser.add_argument('--seed', type=int,  default=2022, help='random seed')
+parser.add_argument('--threshold', type=float, default=0.4,
+                    help='threshold for edge detection')
+parser.add_argument('--kernel_sizes', type=int, default=7,
+                    help='kernel size for edge detection')
 args = parser.parse_args()
 
 def aug_label(label_batch, volume_batch, boundary_generator):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     pseudo_edges = boundary_generator(volume_batch, label_batch)
+    pseudo_edges = pseudo_edges.view(pseudo_edges.shape[0],pseudo_edges.shape[2],pseudo_edges.shape[3]).to(device)
+    label_batch = label_batch.to(device)
     label_batch = torch.where(pseudo_edges > 0, label_batch, label_batch)
     return label_batch
+
 
 
 def train(args, snapshot_path):
@@ -113,7 +122,7 @@ def train(args, snapshot_path):
         for i_batch, sampled_batch in enumerate(trainloader):
 
             volume_batch, label_batch = sampled_batch['image'], sampled_batch['label']
-            """
+
             # SPOBE Generator
             boundary_generator = ObjectPseudoBoundaryGenerator(
                 k=25,
@@ -122,12 +131,11 @@ def train(args, snapshot_path):
                 ignore_index=4,
                 device="cuda" if torch.cuda.is_available() else "cpu"
             )
-                        
+
             # Enriched Scibble with boundary generator
             label_batch = aug_label(label_batch, volume_batch, boundary_generator)
-            """
-
-            volume_batch, label_batch = volume_batch.cuda(), label_batch.cuda()
+            volume_batch = volume_batch.cuda()
+            label_batch = label_batch.cuda()
 
             outputs = model(volume_batch)
             outputs_soft = torch.softmax(outputs, dim=1)
