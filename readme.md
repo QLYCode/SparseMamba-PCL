@@ -1,6 +1,6 @@
 # SparseMamba-PCL
 
-This repository is the official implementation of the paper SparseMamba-PCL: Scribble-Supervised Medical Image Segmentation via SAM-Guided Progressive Collaborative Learning. [Arxiv](https://arxiv.org/abs/2402.02029).
+This repository is the official implementation of the paper SparseMamba-PCL: Scribble-Supervised Medical Image Segmentation via SAM-Guided Progressive Collaborative Learning. [Arxiv](https://arxiv.org/abs/2503.01633).
 
 If you have any questions about the code, please contact LUYI002@e.ntu.edu.sg.
 
