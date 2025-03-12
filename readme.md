@@ -1,6 +1,6 @@
 # SparseMamba-PCL
 
-This repository is the official implementation of the paper SparseMamba-PCL: Scribble-Supervised Medical Image Segmentation via SAM-Guided Progressive Collaborative Learning. [Arxiv](https://arxiv.org/abs/2503.01633).
+This repository is the official implementation of the paper SparseMamba-PCL: Scribble-Supervised Medical Image Segmentation via SAM-Guided Progressive Collaborative Learning [Arxiv](https://arxiv.org/abs/2503.01633).
 
 If you have any questions about the code, please contact LUYI002@e.ntu.edu.sg.
 
@@ -12,7 +12,7 @@ If you have any questions about the code, please contact LUYI002@e.ntu.edu.sg.
 3. The pre-processed ACDC data used for training could be directly downloaded from [ACDC_dataset](https://github.com/HiLab-git/WSL4MIS/tree/main/data/ACDC).
 
 ### CHAOs
-1. The ACDC dataset with mask annotations can be downloaded from [CHAOs](https://www.sciencedirect.com/science/article/abs/pii/S1361841520303145).
+1. The CHAOs dataset with mask annotations can be downloaded from [CHAOs](https://www.sciencedirect.com/science/article/abs/pii/S1361841520303145).
 2. The scribble annotations of CHAOs, generated in [CHAOs scribbles](https://link.springer.com/chapter/10.1007/978-3-031-16452-1_23). 
 
 ### MSCMRSeg
