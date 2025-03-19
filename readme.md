@@ -52,11 +52,11 @@ To train the model, run this command:
 
 ### train SparseMamba
 
-```train python train_weakly_supervised_SparseMamba.py```
+```python train_weakly_supervised_SparseMamba.py```
 
 ### train SparseMamba_PCL
 
-```train python train_weakly_supervised_SparseMamba_PCL.py```
+```python train_weakly_supervised_SparseMamba_PCL.py```
 
 
 ## Evaluation
